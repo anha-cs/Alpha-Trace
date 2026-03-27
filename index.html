@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alpha-Trace AI | Phonics & Numbers</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --accent: #88b8ec;
+      --glass: rgba(255, 255, 255, 0.1);
+      --border: rgba(255, 255, 255, 0.2);
+      --red: #f43f5e;
+      --yellow: #fbbf24;
+    }
+
+    body {
+      margin: 0; overflow: hidden; 
+      background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+      font-family: 'Plus Jakarta Sans', sans-serif; color: white;
+    }
+
+    #video {
+      position: fixed; inset: 0; width: 100vw; height: 100vh;
+      object-fit: cover; transform: scaleX(-1); opacity: 0.15; z-index: 1;
+    }
+
+    #paintCanvas { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
+
+    #ui-layer {
+      position: fixed; top: 20px; left: 0; width: 100%;
+      display: flex; justify-content: center; z-index: 10; pointer-events: none;
+    }
+
+    .status-card {
+      background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      padding: 30px 60px; border-radius: 40px; border: 3px solid var(--border);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.3); text-align: center; min-width: 400px;
+      pointer-events: auto; animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+    .home-btn {
+      position: fixed; top: 30px; right: 30px; z-index: 100;
+      padding: 15px 25px; border-radius: 30px; border: 2px solid var(--red);
+      background: var(--red); color: white; font-weight: 800; cursor: pointer; transition: 0.3s;
+      font-size: 1.1rem; box-shadow: 0 0 20px #fbbf24;
+    }
+    .home-btn:hover { transform: translateY(-5px); filter: brightness(1.1); }
+
+    .main-msg { font-size: 2.2rem; font-weight: 800; margin: 0; letter-spacing: -0.5px; }
+    
+    .progress-title { 
+      font-size: 1.1rem; 
+      text-transform: uppercase; 
+      letter-spacing: 2px; 
+      color: #fb9724;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+      margin-top: 30px; 
+      margin-bottom: -35px; 
+      font-weight: 800; 
+    }
+
+    .progress-container { 
+      width: 100%; height: 24px; background: rgba(0,0,0,0.3); 
+      border-radius: 20px; margin-top: 45px; overflow: hidden; 
+      border: 2px solid rgba(255,255,255,0.1); 
+      position: relative; /* Needed for absolute positioning of text */
+    }
+
+    #progress-fill { width: 0%; height: 100%; background: var(--accent); box-shadow: 0 0 20px var(--accent); transition: width 0.3s ease-out; }
+
+    #progress-text {
+      position: absolute; width: 100%; height: 100%;
+      top: 0; left: 0; display: flex; align-items: center; justify-content: center;
+      font-size: 0.9rem; font-weight: 800; color: white; text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+      pointer-events: none;
+    }
+
+    #overlay {
+      position: fixed; inset: 0; background: #0f172a;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: flex-start; z-index: 100; text-align: center;
+      padding: 40px 20px; overflow-y: auto;
+    }
+
+    .hero-title { font-size: 4rem; margin: 10px 0; font-weight: 800; letter-spacing: -3px; text-shadow: 0 0 30px rgba(45, 212, 191, 0.5); }
+
+    .grid-container {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+      gap: 12px; width: 100%; max-width: 800px; margin-top: 20px; padding: 20px;
+    }
+
+    .grid-item {
+      background: rgba(255,255,255,0.05); border: 2px solid var(--border);
+      border-radius: 15px; padding: 15px; font-size: 1.5rem; font-weight: 800;
+      cursor: pointer; transition: 0.2s;
+    }
+    .grid-item:hover { background: var(--accent); color: #0f172a; transform: scale(1.1); border-color: white; }
+
+    .mode-toggle { display: flex; gap: 15px; margin: 20px 0; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 100px; }
+    .mode-btn { padding: 12px 30px; border-radius: 100px; border: none; background: transparent; color: white; cursor: pointer; font-weight: 800; transition: 0.3s; }
+    .mode-btn.active { background: white; color: #0f172a; box-shadow: 0 10px 20px rgba(255,255,255,0.2); }
+    
+    .start-btn { padding: 20px 60px; font-size: 1.2rem; font-weight: 700; background: #88b8ec; color: #0f172a; border: none; border-radius: 100px; cursor: pointer; transition: 0.3s; margin-top: 20px; }
+    .phonic-sub { font-size: 1.4rem; opacity: 0.9; font-weight: 700; margin-bottom: 10px; }
+    .cheer-text { font-size: 1.6rem; font-weight: 800; color: #fff; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+  <div id="overlay">
+    <h1 class="hero-title">Alpha-Trace</h1>
+    <p style="opacity: 0.7;">Choose a friend to trace!</p>
+    
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="btn-letters" onclick="setGameMode('letters')">ABC Letters</button>
+      <button class="mode-btn" id="btn-numbers" onclick="setGameMode('numbers')">123 Numbers</button>
+    </div>
+
+    <div id="char-grid" class="grid-container"></div>
+
+    <button id="startBtn" class="start-btn">PLAY ALL 🚀</button>
+  </div>
+
+  <button id="backToHome" class="home-btn" style="display: none;" onclick="goHome()">MENU 🏠</button>
+
+  <div id="ui-layer" style="display: none;">
+    <div class="status-card">
+      <div id="status-msg" class="main-msg"></div>
+      <div class="progress-title">Your Progress</div>
+      <div class="progress-container">
+        <div id="progress-fill"></div>
+        <div id="progress-text">0%</div>
+      </div>
+    </div>
+  </div>
+
+  <video id="video" playsinline muted autoplay style="display:none;"></video>
+  <canvas id="paintCanvas"></canvas>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('paintCanvas');
+    const ctx = canvas.getContext('2d');
+    const statusMsg = document.getElementById('status-msg');
+    const progressFill = document.getElementById('progress-fill');
+    const progressText = document.getElementById('progress-text');
+    const startBtn = document.getElementById('startBtn');
+    const overlay = document.getElementById('overlay');
+    const uiLayer = document.getElementById('ui-layer');
+    const backBtn = document.getElementById('backToHome');
+    const charGrid = document.getElementById('char-grid');
+
+    let checkpoints = [], particles = [], hits = 0, isFinished = false, currentIdx = 0;
+    let gameMode = 'letters';
+    let cameraInstance = null;
+    let currentColor = "#2dd4bf";
+
+    const colorPalette = ["#2dd4bf", "#f43f5e", "#a855f7", "#fbbf24", "#34d399", "#60a5fa", "#f472b6", "#fb923c"];
+    const cheers = ["Superstar!", "Amazing! Keep it up", "Woohoo! You got it", "Magical! You nailed it", "Perfect! Let's try the next one", "Incredible! You did a great job", "You did it!", "Tracing Master!"];
+    
+    const content = {
+      letters: "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split(""),
+      numbers: "0123456789".split("")
+    };
+    const phonicsMap = {
+      A: "Apple", B: "Ball", C: "Cat", D: "Dog", E: "Elephant", F: "Fish", G: "Goat", H: "Hat", I: "Igloo", J: "Juice", K: "Kite", L: "Lion", M: "Monkey", N: "Nest", O: "Orange", P: "Pig", Q: "Queen", R: "Rabbit", S: "Sun", T: "Tiger", U: "Umbrella", V: "Van", W: "Watch", X: "X-ray", Y: "Yo-yo", Z: "Zebra",
+      0: "Zero Heroes", 1: "One Sun", 2: "Two Shoes", 3: "Three Trees", 4: "Four Doors", 5: "Five Bees", 6: "Six Sticks", 7: "Seven Heavens", 8: "Eight Plates", 9: "Nine Vines"
+    };
+
+    function setGameMode(mode) {
+      gameMode = mode;
+      document.getElementById('btn-letters').classList.toggle('active', mode === 'letters');
+      document.getElementById('btn-numbers').classList.toggle('active', mode === 'numbers');
+      startBtn.innerText = mode === 'letters' ? "PLAY ALL (A-Z) 🚀" : "PLAY ALL (0-9) 🚀";
+      renderGrid();
+    }
+
+    function renderGrid() {
+      charGrid.innerHTML = '';
+      content[gameMode].forEach((char, index) => {
+        const btn = document.createElement('div');
+        btn.className = 'grid-item';
+        btn.innerText = char;
+        btn.onclick = () => startGame(index);
+        charGrid.appendChild(btn);
+      });
+    }
+
+    async function startGame(startIndex = 0) {
+      currentIdx = startIndex;
+      try {
+        if(!cameraInstance) {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          video.srcObject = stream;
+          cameraInstance = new Camera(video, {
+            onFrame: async () => { await hands.send({image: video}); },
+            width: 1280, height: 720
+          });
+          cameraInstance.start();
+        }
+        overlay.style.display = 'none'; uiLayer.style.display = 'flex'; backBtn.style.display = 'block';
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        generateLetter(content[gameMode][currentIdx]);
+      } catch (err) { alert("Please allow camera access!"); }
+    }
+
+    function goHome() {
+      overlay.style.display = 'flex'; uiLayer.style.display = 'none'; backBtn.style.display = 'none';
+      isFinished = true; checkpoints = []; particles = [];
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      window.speechSynthesis.cancel();
+    }
+
+    async function generateLetter(char) {
+      await document.fonts.ready;
+      currentColor = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+      document.documentElement.style.setProperty('--accent', currentColor);
+      progressFill.style.backgroundColor = currentColor;
+      progressFill.style.boxShadow = `0 0 25px ${currentColor}`;
+
+      checkpoints = []; hits = 0; isFinished = false;
+      const label = gameMode === 'letters' ? 'Letter' : 'Number';
+      statusMsg.innerHTML = `<span style="color:#f43f5e">Trace the ${label} ${char}</span>`;
+      progressFill.style.width = "0%";
+      progressText.innerText = "0%";
+
+      const tempC = document.createElement('canvas');
+      const tCtx = tempC.getContext('2d');
+      tempC.width = window.innerWidth; tempC.height = window.innerHeight;
+      const size = Math.min(tempC.width, tempC.height) * 0.65;
+      tCtx.font = `bold ${size}px 'Plus Jakarta Sans'`;
+      tCtx.textAlign = "center"; tCtx.textBaseline = "middle";
+      tCtx.fillText(char, tempC.width / 2, (tempC.height / 2) + 90);
+
+      const data = tCtx.getImageData(0, 0, tempC.width, tempC.height).data;
+      for (let y = 0; y < tempC.height; y += 32) {
+        for (let x = 0; x < tempC.width; x += 32) {
+          if (data[(y * tempC.width + x) * 4 + 3] > 128) checkpoints.push({ x, y, hit: false });
+        }
+      }
+    }
+
+    function celebrate(char) {
+      const word = phonicsMap[char];
+      const randomCheer = cheers[Math.floor(Math.random() * cheers.length)];
+      
+      statusMsg.innerHTML = `
+        <div class="phonic-sub">${char} is for</div>
+        <div style="color:${currentColor}; text-shadow: 0 0 25px ${currentColor}; font-size: 3rem; font-weight: 800;">
+          ${word}!
+        </div>
+        <div class="cheer-text">${randomCheer}</div>
+      `;
+
+      const phonicSpeech = new SpeechSynthesisUtterance(`${char}........... ${char} is for ${word}.`);
+      phonicSpeech.onend = () => {
+        if (overlay.style.display === 'flex') return;
+        const cheerSpeech = new SpeechSynthesisUtterance(randomCheer);
+        cheerSpeech.pitch = 1.7;
+        window.speechSynthesis.speak(cheerSpeech);
+        
+        for (let i = 0; i < 150; i++) {
+          particles.push({
+            x: canvas.width / 2, y: canvas.height / 2,
+            vx: (Math.random() - 0.5) * 20, vy: (Math.random() - 0.5) * 20,
+            color: `hsl(${Math.random() * 360}, 100%, 65%)`, size: Math.random() * 10 + 5, life: 1.0
+          });
+        }
+      };
+      window.speechSynthesis.speak(phonicSpeech);
+    }
+
+    const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+    hands.setOptions({ selfieMode: true, maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.6 });
+
+    hands.onResults((results) => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (overlay.style.display === 'flex') return;
+      checkpoints.forEach(p => {
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.hit ? 14 : 9, 0, Math.PI * 2);
+        ctx.fillStyle = p.hit ? currentColor : "#888888"; 
+        if(p.hit) { ctx.shadowBlur = 20; ctx.shadowColor = currentColor; }
+        ctx.fill(); ctx.shadowBlur = 0;
+      });
+
+      particles = particles.filter(p => p.life > 0);
+      particles.forEach(p => {
+        ctx.fillStyle = p.color; ctx.globalAlpha = p.life;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+        p.x += p.vx; p.y += p.vy; p.vy += 0.25; p.life -= 0.015;
+      });
+      ctx.globalAlpha = 1.0;
+      
+      if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        const tip = { x: results.multiHandLandmarks[0][8].x * canvas.width, y: results.multiHandLandmarks[0][8].y * canvas.height };
+        const grad = ctx.createRadialGradient(tip.x, tip.y, 0, tip.x, tip.y, 30);
+        grad.addColorStop(0, "white"); grad.addColorStop(1, "transparent");
+        ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(tip.x, tip.y, 30, 0, Math.PI * 2); ctx.fill();
+        if (!isFinished) {
+          checkpoints.forEach(p => { 
+            if (!p.hit && Math.hypot(tip.x - p.x, tip.y - p.y) < 50) { 
+              p.hit = true; 
+              hits++; 
+              let pct = Math.floor((hits / checkpoints.length) * 100);
+              progressFill.style.width = `${pct}%`; 
+              progressText.innerText = `${pct}%`;
+            } 
+          });
+          if (hits >= checkpoints.length * 1 && checkpoints.length > 0) {
+            isFinished = true;
+            progressFill.style.width = "100%";
+            progressText.innerText = "100%";
+            celebrate(content[gameMode][currentIdx]);
+            setTimeout(() => {
+              if (overlay.style.display === 'flex') return;
+              currentIdx = (currentIdx + 1) % content[gameMode].length;
+              generateLetter(content[gameMode][currentIdx]);
+            }, 5000);
+          }
+        }
+      }
+    });
+
+    startBtn.onclick = () => startGame(0);
+    window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+    renderGrid();
+  </script>
+</body>
+</html>
